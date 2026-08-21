@@ -29,3 +29,6 @@ jobs:
 
       - name: shell-niri drift check (variants shadow upstream)
         run: nix build .#checks.x86_64-linux.shell-niri-shadows-upstream
+
+      - name: VM test — niri desktop boots + omarchy shell loads
+        run: nix build .#checks.x86_64-linux.omarchy-niri-vm

@@ -73,6 +73,11 @@
           echo "All shell-niri/ variants shadow an upstream shell/ file ✓"
           touch $out
         '';
+
+        # Boots the niri desktop (SDDM autologin -> niri -> omarchy shell with
+        # qml-niri) in a QEMU VM and asserts the shell loads without QML errors.
+        # Build/run: nix build .#checks.x86_64-linux.omarchy-niri-vm
+        omarchy-niri-vm = import ./nix/vm-test.nix { inherit pkgs self; };
       };
     };
 }
