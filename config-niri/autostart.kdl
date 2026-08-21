@@ -1,0 +1,26 @@
+// Startup applications — Omarchy on Niri.
+// The omarchy shell (quickshell, single long-running instance hosting the
+// bar/menu/panels) is the core; the rest are parity services for the
+// Hyprland session's hypridle/hyprpaper/hyprsunset/OSD/polkit equivalents.
+
+// The omarchy shell itself (quickshell -n -p $OMARCHY_PATH/shell).
+// Path is resolved via the omarchy-launch-shell command on PATH.
+spawn-at-startup "omarchy-launch-shell"
+
+// Wallpaper (hyprpaper parity) — resolves the active omarchy theme's background.
+spawn-sh-at-startup "uwsm app -- swaybg -i ~/.local/state/omarchy/current/theme/background -m fill"
+
+// OSD (media/brightness on-screen display)
+spawn-at-startup "uwsm" "app" "--" "swayosd-server"
+
+// Idle + lock (hypridle/hyprlock parity): 5 min lock, 10 min display off.
+spawn-at-startup "uwsm" "app" "--" "swayidle" "-w" "timeout" "300" "swaylock" "timeout" "600" "niri msg action power-off-monitors" "resume" "niri msg action power-on-monitors"
+
+// Polkit authentication agent (same as Hyprland session).
+spawn-at-startup "/run/current-system/sw/libexec/polkit-gnome-authentication-agent-1"
+
+// Clipboard persistence (same as Hyprland session).
+spawn-at-startup "wl-clip-persist" "--clipboard" "regular" "--all-mime-type-regex" "^(?!x-kde-passwordManagerHint).+"
+
+// First-run command (same as Hyprland session).
+spawn-at-startup "omarchy-cmd-first-run"

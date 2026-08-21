@@ -1,0 +1,13 @@
+// Input configuration — mirrors the Hyprland session's input settings.
+input {
+    keyboard {
+        xkb {
+            // System layout comes from the compositor host; override per-host.
+        }
+    }
+    touchpad {
+        tap true
+        natural-scroll true
+        disable-while-typing true
+    }
+}

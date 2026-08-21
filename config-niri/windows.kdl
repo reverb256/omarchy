@@ -1,0 +1,5 @@
+// Window rules — spawn/movement behaviors that mirror Hyprland defaults.
+window-rule {
+    // Floating windows float by default on open (matches Hyprland's float rules).
+    match default-floating
+}

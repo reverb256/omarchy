@@ -1,0 +1,2 @@
+// Monitor configuration — per-host overrides live here. Empty by default;
+// the active theme's background is applied by swaybg in autostart.kdl.

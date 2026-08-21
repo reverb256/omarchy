@@ -1,0 +1,12 @@
+// Look & feel — layout defaults. Theme colors are appended by the theme
+// fragment (themes/<name>/niri.kdl), generated last so they win.
+layout {
+    gaps 16
+    center-focused-column "on-overflow"
+    preset-column-widths {
+        proportion 0.33333
+        proportion 0.5
+        proportion 0.66667
+    }
+    default-column-width { proportion 0.5; }
+}
