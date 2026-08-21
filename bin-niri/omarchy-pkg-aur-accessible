@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true if the AUR is up and available (always false on NixOS).
+
+echo "The AUR is not available on NixOS." >&2
+exit 1

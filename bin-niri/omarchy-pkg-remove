@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# omarchy:summary=Show a fuzzy-finder TUI for picking profile packages to remove.
+# omarchy:examples=omarchy pkg remove
+
+# nix profile list prints one "Name: <pkg>" line per entry; pick the names.
+selected=$(nix profile list 2>/dev/null \
+  | awk -F':[[:space:]]*' '/^Name:/{print $2}' \
+  | fzf --multi)
+
+[[ -n "$selected" ]] || exit 0
+
+echo "$selected" | while IFS= read -r name; do
+  nix profile remove "$name" || exit 1
+done
+
+omarchy-show-done

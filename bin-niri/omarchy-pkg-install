@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# omarchy:summary=Show a fuzzy-finder TUI for picking nixpkgs packages to install into the profile.
+# omarchy:args=[query]
+# omarchy:examples=omarchy pkg install editor
+
+query="${1:-}"
+if [[ -z "$query" ]]; then
+  read -r -p "Search nixpkgs: " query
+fi
+
+# nix search --json keys look like "legacyPackages.x86_64-linux.ripgrep";
+# strip the prefix to the attribute name for display + install.
+selected=$(nix search nixpkgs "$query" --json 2>/dev/null \
+  | jq -r 'keys[]' \
+  | sed -E 's/^(legacyPackages|packages)\.[^.]+\.//' \
+  | fzf --multi)
+
+[[ -n "$selected" ]] || exit 0
+
+echo "$selected" | while IFS= read -r attr; do
+  nix profile install "nixpkgs#$attr" || exit 1
+done
+
+omarchy-show-done

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true if all of the named packages are available (or false if any are missing).
+# omarchy:args=<packages...>
+
+# "Present" = the executable is on PATH (system or profile) OR a profile entry
+# name matches exactly. NixOS has no pacman package DB, so this is the closest
+# usable check. For a package whose binary differs from its attribute name
+# (e.g. ripgrep -> rg), pass the binary name.
+
+for pkg in "$@"; do
+  command -v "$pkg" &>/dev/null && continue
+  nix profile list 2>/dev/null \
+    | awk -F':[[:space:]]*' -v p="$pkg" '/^Name:/ && $2 == p {found=1} END {exit !found}' \
+    && continue
+  exit 1
+done
+
+exit 0

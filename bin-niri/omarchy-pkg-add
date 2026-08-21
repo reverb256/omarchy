@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# omarchy:summary=Install nixpkgs packages into the profile if they are missing
+# omarchy:args=<packages...>
+# omarchy:examples=omarchy pkg add ripgrep jq
+
+# NixOS has no pacman. Install to the user profile (Layer 3), the cluster's
+# home for high-churn binaries. `nixpkgs#<attr>` resolves through the user's
+# flake registry; pin it there if you want a specific nixpkgs rev.
+
+for pkg in "$@"; do
+  if omarchy-pkg-present "$pkg"; then
+    continue
+  fi
+  nix profile install "nixpkgs#$pkg" || exit 1
+done
+
+exit 0

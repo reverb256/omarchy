@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# omarchy:summary=Add the named packages from the AUR (not available on NixOS).
+# omarchy:args=<packages...>
+
+echo "Error: the AUR is not available on NixOS." >&2
+echo "Use \`omarchy pkg add <nixpkgs-attribute>\` to install from nixpkgs." >&2
+exit 1

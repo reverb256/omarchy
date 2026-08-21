@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# omarchy:summary=Remove all the named packages from the profile if they're installed (otherwise ignore).
+# omarchy:args=<packages...>
+
+# nix profile remove matches by profile entry name; a missing name is ignored.
+# System (Layer 1) packages are declarative, not profile-managed, so they stay.
+
+for pkg in "$@"; do
+  nix profile remove "$pkg" 2>/dev/null || true
+done
+
+exit 0

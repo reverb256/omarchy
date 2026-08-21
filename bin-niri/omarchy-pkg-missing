@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# omarchy:summary=Returns true if any of the named packages are missing (or false if they're all present).
+# omarchy:args=<packages...>
+
+for pkg in "$@"; do
+  if ! omarchy-pkg-present "$pkg"; then
+    exit 0
+  fi
+done
+
+exit 1
