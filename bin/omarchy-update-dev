@@ -18,4 +18,22 @@ if [[ -z $upstream ]]; then
 fi
 
 echo -e "\e[32m\nUpdate Omarchy dev checkout\e[0m"
-git -C "$OMARCHY_PATH" pull --ff-only
+
+# Bundled agent skills are symlinked into ~/.hermes/skills/ (and the
+# equivalent dirs for Claude, Codex, Gemini, etc.). When an agent
+# edits one, the change writes through the symlink into this git
+# checkout, leaving the working tree dirty. A plain `git pull --ff-only`
+# aborts on uncommitted changes — and with pull.rebase=true in a user's
+# git config, it tries to rebase even with --ff-only, which also needs a
+# clean tree.
+#
+# Stash, pull, restore — only when the tree is dirty, so the update
+# never stalls on agent edits or stray local changes.
+
+if git -C "$OMARCHY_PATH" diff --quiet; then
+  git -C "$OMARCHY_PATH" pull --ff-only --no-rebase
+else
+  git -C "$OMARCHY_PATH" stash push -u -m "omarchy update"
+  git -C "$OMARCHY_PATH" pull --ff-only --no-rebase
+  git -C "$OMARCHY_PATH" stash pop
+fi
