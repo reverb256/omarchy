@@ -29,11 +29,22 @@ echo -e "\e[32m\nUpdate Omarchy dev checkout\e[0m"
 #
 # Stash, pull, restore — only when the tree is dirty, so the update
 # never stalls on agent edits or stray local changes.
+#
+# Pull with fast-forward only by default; that is the common case and
+# preserves the linear history the dev checkout expects. A local branch
+# that has diverged (commits the upstream does not have) defeats ff-only,
+# so fall back to a plain merge for that case rather than aborting the
+# whole update. --no-rebase keeps the caller's configured pull behaviour
+# from rewriting the diverged commits.
+pull() {
+  git -C "$OMARCHY_PATH" pull --ff-only --no-rebase ||
+    git -C "$OMARCHY_PATH" pull --no-rebase
+}
 
 if git -C "$OMARCHY_PATH" diff --quiet; then
-  git -C "$OMARCHY_PATH" pull --ff-only --no-rebase
+  pull
 else
   git -C "$OMARCHY_PATH" stash push -u -m "omarchy update"
-  git -C "$OMARCHY_PATH" pull --ff-only --no-rebase
+  pull
   git -C "$OMARCHY_PATH" stash pop
 fi

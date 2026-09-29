@@ -44,7 +44,15 @@ case "$1" in
     # Record stash push/pop calls; always succeed so the test can assert ordering
     ;;
   pull)
-    [[ $2 == "--ff-only" ]] && [[ $3 == "--no-rebase" ]] || exit 1
+    # TEST_GIT_PULL_FF_FAIL makes the --ff-only attempt exit 128 (git's
+    # "not possible to fast-forward"), forcing the script's fallback to a
+    # plain merge pull. The fallback itself always succeeds.
+    if [[ $2 == "--ff-only" ]]; then
+      [[ $2 == "--ff-only" ]] && [[ $3 == "--no-rebase" ]] || exit 1
+      if [[ ${TEST_GIT_PULL_FF_FAIL:-no} == "yes" ]]; then exit 128; fi
+    else
+      [[ $2 == "--no-rebase" ]] || exit 1
+    fi
     ;;
   *)
     exit 1
@@ -83,6 +91,31 @@ grep -Fx -- "-C $checkout pull --ff-only --no-rebase" "$git_log" >/dev/null ||
 grep -Fx -- "-C $checkout stash pop" "$git_log" >/dev/null ||
   fail "dirty tree restores the stash after pulling" "$(cat "$git_log")"
 pass "dirty tree is stashed, pulled, and restored"
+
+# A diverged local branch (commits upstream does not have) defeats
+# --ff-only. The script must fall back to a plain merge pull instead of
+# aborting the update with "Not possible to fast-forward".
+: >"$git_log"
+if ! TEST_GIT_PULL_FF_FAIL=yes run_dev_update "$checkout" no >"$test_tmp/diverge.out" 2>"$test_tmp/diverge.err"; then
+  fail "diverged dev checkout does not abort the update" "$(cat "$test_tmp/diverge.err")"
+fi
+grep -Fx -- "-C $checkout pull --ff-only --no-rebase" "$git_log" >/dev/null ||
+  fail "diverged checkout still tries fast-forward first" "$(cat "$git_log")"
+grep -Fx -- "-C $checkout pull --no-rebase" "$git_log" >/dev/null ||
+  fail "diverged checkout falls back to a plain merge pull" "$(cat "$git_log")"
+pass "diverged dev checkout falls back to a plain merge pull instead of aborting"
+
+# A dirty tree that also diverges must not lose the stash pop: stash, then
+# attempt ff-only (fail), then plain pull, then pop.
+: >"$git_log"
+if ! TEST_GIT_PULL_FF_FAIL=yes run_dev_update "$checkout" yes >"$test_tmp/diverge_dirty.out" 2>"$test_tmp/diverge_dirty.err"; then
+  fail "diverged dirty checkout does not abort the update" "$(cat "$test_tmp/diverge_dirty.err")"
+fi
+grep -Fx -- "-C $checkout stash push -u -m omarchy update" "$git_log" >/dev/null ||
+  fail "diverged dirty tree still stashes before pulling" "$(cat "$git_log")"
+grep -Fx -- "-C $checkout stash pop" "$git_log" >/dev/null ||
+  fail "diverged dirty tree restores the stash after the fallback pull" "$(cat "$git_log")"
+pass "diverged dirty tree is stashed, merged, and restored"
 
 : >"$git_log"
 TEST_GIT_UPSTREAM=none run_dev_update "$checkout"
