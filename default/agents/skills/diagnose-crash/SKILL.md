@@ -29,6 +29,12 @@ different than a single failure does.
 Check resource exhaustion before blaming the program: `free -h`, and the journal
 for OOM kills. A process killed by the OOM killer is not a bug in that process.
 
+Resource exhaustion is not only host RAM. For anything touching the GPU, check
+`nvidia-smi` for VRAM and look for driver-side allocation failures in the journal
+(`Failed to allocate ... video memory`, `trying to fall back to sysmem`). A GPU
+under VRAM pressure from other resident processes is a legitimate trigger, and the
+kernel usually says so at the moment it happens.
+
 ## Correlate against the timeline
 
 The crash timestamp is the most underused piece of evidence. Compare it against:
@@ -39,6 +45,11 @@ The crash timestamp is the most underused piece of evidence. Compare it against:
   neighbouring processes.
 - **Recent package updates.** A crash that starts right after an update points at
   the update.
+
+Use `journalctl -o short-precise` when several events share a second. Sub-second
+ordering is what separates a cause from a consequence — kernel messages landing
+tens of milliseconds *before* the signal are a lead; the same messages after it
+are just the aftermath.
 
 ## Read the whole core, not just frame 0
 
@@ -51,6 +62,28 @@ extensions, plugins, out-of-tree drivers. In-process third-party code is a commo
 crash source and worth flagging — but do not pin blame on it without evidence
 that it is actually implicated.
 
+`info sharedlibrary` lists what was actually mapped, which beats guessing from the
+flags: it shows whether a plugin, codec or driver really was loaded. Where a child
+process crashed, remember the command line of the **parent** — a browser's GPU or
+renderer process carries only a subset of the parent's flags, so its argv is not
+the launch configuration.
+
+Read the fault itself, not just the frames. The fault address and the faulting
+instruction separate a null dereference from wild corruption, and say which
+library's data the code was reaching for:
+
+```bash
+gdb -q <exe> "$core" -batch -iex 'set debuginfod enabled off' \
+  -ex 'p $_siginfo._sifields._sigfault.si_addr' \
+  -ex 'info registers rip rax rdi rsi' \
+  -ex 'x/3i $pc'
+```
+
+A small fault address (hundreds of bytes to a few KB) with a zeroed base register
+is a NULL dereference of a struct field — the library expected an object that was
+never created. A large, random address points at corruption instead. The two lead
+to different reports.
+
 ## Symbolize when you can
 
 This is Arch, which runs a public debuginfod server:
@@ -61,12 +94,36 @@ trap 'rm -f "$core"' EXIT
 coredumpctl dump <pid> --output="$core"
 DEBUGINFOD_URLS="https://debuginfod.archlinux.org" \
   gdb -q <executable> "$core" \
-  -batch -ex 'set debuginfod enabled on' -ex 'bt'
+  -batch -iex 'set debuginfod enabled on' -ex 'bt'
 ```
 
 A core is a verbatim copy of the process's memory and can hold passwords, tokens,
 and private documents. Write it to a fresh `mktemp` path rather than a predictable
 shared one, and delete it when you are done — never leave it lying in `/tmp`.
+
+A long gdb run can be killed by a timeout before the `rm` executes, leaving a
+multi-hundred-megabyte memory image behind. Check for stray `*.core` files before
+you finish rather than assuming the cleanup ran.
+
+`-iex` is required, not `-ex`: gdb asks whether to enable debuginfod *before* it
+runs any `-ex` command, so with `-ex` the answer silently defaults to no and the
+setting never takes effect. `-iex` runs early enough to win.
+
+Watch what debuginfod downloads. gdb fetches debuginfo per object file as it
+unwinds, so symbolizing a browser pulls that browser's own multi-gigabyte debug
+package — a run that can hang for many minutes and still leave the interesting
+frames unresolved. When the interesting frames sit in a small library (libGLX,
+libc, libglvnd) rather than the main binary, skip debuginfod and read the offsets
+against that library's dynamic symbols instead:
+
+```bash
+nm -D --defined-only /usr/lib/libGLX.so.0 | sort | awk 'strtonum("0x"$1) <= 0x18aa8' | tail -3
+```
+
+That names the exported function an offset falls inside. An offset can also land
+in a static helper that exports nothing, in which case you can only bracket it
+between the two nearest exports — say so rather than naming a function you did
+not verify.
 
 Many packages publish no debug symbols. When frames stay unresolved, say so —
 never invent function names to fill the gap. An unsymbolized stack still has
